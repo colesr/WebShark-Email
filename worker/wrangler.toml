@@ -1,0 +1,8 @@
+name = "webshark-email-send"
+main = "worker.js"
+compatibility_date = "2026-06-25"
+compatibility_flags = ["nodejs_compat"]
+
+kv_namespaces = [
+  { binding = "INBOXES", id = "f7def1f429c94169b340ed9278b358de" }
+]

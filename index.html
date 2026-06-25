@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSharkEmail </title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased h-screen flex flex-col">
+
+    <!-- Header / Navbar -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="bg-indigo-600 text-white p-2 rounded-xl shadow-md shadow-indigo-100">
+                <i class="fa-solid fa-envelope-open-text text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-slate-900">WebShark Email</h1>
+                <p class="text-xs text-slate-500 font-medium">Free, lightweight email sending with WebShark</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Service Active
+            </span>
+            <button onclick="openComposeModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs py-2 px-3 rounded-lg transition flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-pen-to-square"></i> Compose
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Sidebar: Inbox Manager -->
+        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0">
+            <!-- Generator Tool -->
+            <div class="p-4 border-b border-slate-100 space-y-3">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400">Create New Inbox</label>
+                <div class="flex gap-2">
+                    <input type="text" id="custom-prefix" placeholder="custom-name" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    <span class="text-slate-400 self-center text-sm">@infin.io</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="createNewInbox(true)" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs py-2 px-3 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
+                        <i class="fa-solid fa-plus"></i> Create
+                    </button>
+                    <button onclick="createNewInbox(false)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs py-2 px-3 rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer">
+                        <i class="fa-solid fa-shuffle"></i> Random
+                    </button>
+                </div>
+            </div>
+
+            <!-- Inboxes List -->
+            <div class="flex-1 overflow-y-auto p-3 space-y-1">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 px-2 mb-2">Active Inboxes (<span id="inbox-count">0</span>)</label>
+                <div id="inbox-list" class="space-y-1">
+                    <!-- Dynamic Inboxes Inject Here -->
+                </div>
+            </div>
+
+            <div class="border-t border-slate-100 p-4 space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Sent History</span>
+                    <button onclick="clearSentHistory()" class="text-[10px] text-slate-400 hover:text-slate-600">Clear</button>
+                </div>
+                <div id="sent-history" class="space-y-2 text-slate-600 text-xs">
+                    <p class="text-slate-400">No sent emails yet.</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Middle Column: Messages List -->
+        <section class="w-96 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0">
+            <div class="p-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
+                <div>
+                    <h2 class="font-semibold text-slate-900" id="current-inbox-title">Select an Inbox</h2>
+                    <p id="current-inbox-meta" class="text-xs text-slate-400 mt-1">Select or create an inbox to begin.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="simulateInbound()" class="text-slate-500 hover:text-emerald-600 transition p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer" title="Simulate inbound email">
+                        <i class="fa-solid fa-envelope-circle-check"></i>
+                    </button>
+                    <button onclick="refreshMessages()" class="text-slate-500 hover:text-indigo-600 transition p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer" title="Refresh Feed">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="message-list" class="flex-1 overflow-y-auto p-3 space-y-2">
+                <!-- Dynamic Message Cards Inject Here -->
+                <div class="text-center py-12 text-slate-400">
+                    <i class="fa-solid fa-tray text-3xl mb-2 block"></i>
+                    <p class="text-sm">No inbox selected</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Message Viewer -->
+        <main class="flex-1 bg-white flex flex-col overflow-hidden">
+            <div id="message-viewer" class="flex flex-col h-full items-center justify-center text-slate-400 p-8">
+                <i class="fa-solid fa-paper-plane text-4xl mb-3"></i>
+                <p class="text-lg font-medium">Select an email to read its contents</p>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- Compose Modal -->
+    <div id="compose-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl w-96 max-h-96 flex flex-col">
+            <div class="p-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+                <h3 class="font-bold text-slate-900">Compose Email</h3>
+                <button onclick="closeComposeModal()" class="text-slate-400 hover:text-slate-600 text-xl cursor-pointer">✕</button>
+            </div>
+            <div class="p-4 overflow-y-auto flex-1 space-y-3">
+                <div>
+                    <label class="text-xs font-semibold text-slate-400 block mb-1">To:</label>
+                    <input type="email" id="compose-to" placeholder="recipient@example.com" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-400 block mb-1">Subject:</label>
+                    <input type="text" id="compose-subject" placeholder="Email subject" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-slate-400 block mb-1">Body:</label>
+                    <textarea id="compose-body" placeholder="Email body (HTML supported)" rows="5" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs resize-none"></textarea>
+                </div>
+            </div>
+            <div id="compose-status" class="px-4 pb-3 text-xs text-slate-500"></div>
+            <div class="p-4 border-t border-slate-200 flex gap-2 shrink-0">
+                <button id="compose-send-btn" onclick="sendEmail()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs py-2 px-3 rounded-lg transition cursor-pointer">
+                    <i class="fa-solid fa-paper-plane mr-1"></i> Send
+                </button>
+                <button onclick="closeComposeModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs py-2 px-3 rounded-lg transition cursor-pointer">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+        <!-- JavaScript logic -->
+    <script>
+        const WORKER_URL = 'https://webshark-email-send.cole-colesr-sam.workers.dev';
+        const SENT_HISTORY_KEY = 'webshark-email-sent-history';
+
+        let inboxes = [];
+        let activeInboxId = null;
+        let activeMessageId = null;
+        let sentHistory = [];
+        let lastRefreshTime = null;
+
+        window.onload = async () => {
+            sentHistory = loadSentHistory();
+            renderSentHistory();
+            await createNewInbox(false);
+        };
+
+        function validateEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        function loadSentHistory() {
+            try {
+                const stored = window.localStorage.getItem(SENT_HISTORY_KEY);
+                return stored ? JSON.parse(stored) : [];
+            } catch (error) {
+                console.warn('Unable to load sent history', error);
+                return [];
+            }
+        }
+
+        function saveSentHistory() {
+            window.localStorage.setItem(SENT_HISTORY_KEY, JSON.stringify(sentHistory));
+        }
+
+        function addSentHistoryEntry(entry) {
+            sentHistory.unshift(entry);
+            if (sentHistory.length > 10) sentHistory.length = 10;
+            saveSentHistory();
+            renderSentHistory();
+        }
+
+        function renderSentHistory() {
+            const container = document.getElementById('sent-history');
+            if (!sentHistory.length) {
+                container.innerHTML = '<p class="text-slate-400">No sent emails yet.</p>';
+                return;
+            }
+            container.innerHTML = sentHistory.map(entry => `
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <span class="text-[11px] uppercase tracking-[.18em] text-slate-400">${entry.time}</span>
+                        <span class="text-[11px] text-indigo-600 font-semibold">${entry.to}</span>
+                    </div>
+                    <div class="text-sm font-semibold text-slate-900 truncate">${entry.subject}</div>
+                    <p class="mt-1 text-xs text-slate-500 line-clamp-2">${entry.preview}</p>
+                </div>
+            `).join('');
+        }
+
+        async function loadInboxMessages(address) {
+            if (!address) return;
+            const inbox = inboxes.find(i => i.address === address);
+            if (!inbox) return;
+
+            try {
+                const response = await fetch(`${WORKER_URL}/messages?address=${encodeURIComponent(address)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                });
+
+                const text = await response.text();
+                let data = null;
+                try {
+                    data = text ? JSON.parse(text) : null;
+                } catch (parseError) {
+                    console.warn('Messages endpoint returned invalid JSON:', text);
+                }
+
+                if (response.ok) {
+                    inbox.messages = Array.isArray(data?.messages) ? data.messages : [];
+                    lastRefreshTime = new Date();
+                    renderMessages();
+                    renderInboxes();
+                    renderInboxMeta();
+                } else {
+                    const errMessage = data?.error || data?.message || response.statusText;
+                    showToast(`Unable to load inbox: ${errMessage}`, 'error');
+                }
+            } catch (error) {
+                showToast(`Unable to load inbox: ${error.message}`, 'error');
+            }
+        }
+
+        function clearSentHistory() {
+            sentHistory = [];
+            saveSentHistory();
+            renderSentHistory();
+            showToast('Sent history cleared.', 'info');
+        }
+
+        function setComposeStatus(message = '', type = 'info') {
+            const statusNode = document.getElementById('compose-status');
+            if (!statusNode) return;
+            statusNode.innerText = message;
+            statusNode.className = `px-4 pb-3 text-xs ${message ? (type === 'error' ? 'text-rose-600' : type === 'success' ? 'text-emerald-700' : 'text-slate-500') : 'text-slate-500'}`;
+        }
+
+        function setComposeButtonState(disabled, label) {
+            const button = document.getElementById('compose-send-btn');
+            if (!button) return;
+            button.disabled = disabled;
+            button.innerHTML = disabled ? '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i> ' + label : '<i class="fa-solid fa-paper-plane mr-1"></i> ' + label;
+            button.classList.toggle('opacity-60', disabled);
+            button.classList.toggle('cursor-not-allowed', disabled);
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            toast.innerText = message;
+            toast.className = `fixed bottom-5 right-5 z-50 max-w-xs rounded-2xl p-3 text-sm shadow-2xl transition-opacity duration-300 ${type === 'error' ? 'bg-rose-600 text-white' : type === 'info' ? 'bg-slate-900 text-white' : 'bg-emerald-600 text-white'}`;
+            toast.style.opacity = '1';
+            clearTimeout(window._websharkToastTimer);
+            window._websharkToastTimer = setTimeout(() => {
+                toast.style.opacity = '0';
+            }, 3200);
+        }
+
+        async function createNewInbox(isCustom) {
+            let prefix = '';
+            if (isCustom) {
+                prefix = document.getElementById('custom-prefix').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (!prefix) {
+                    showToast('Please enter a valid alphanumeric inbox prefix.', 'error');
+                    return;
+                }
+                document.getElementById('custom-prefix').value = '';
+            } else {
+                prefix = Math.random().toString(36).substring(2, 10);
+            }
+
+            const emailAddress = `${prefix}@infin.io`;
+            if (inboxes.some(i => i.address === emailAddress)) {
+                showToast('This inbox already exists.', 'info');
+                return;
+            }
+
+            const newInbox = { id: Date.now().toString(), address: emailAddress, messages: [] };
+            inboxes.unshift(newInbox);
+            await selectInbox(newInbox.id);
+            renderInboxes();
+            showToast(`Inbox created: ${emailAddress}`, 'success');
+        }
+
+        function renderInboxes() {
+            const container = document.getElementById('inbox-list');
+            document.getElementById('inbox-count').innerText = inboxes.length;
+            container.innerHTML = '';
+
+            inboxes.forEach(inbox => {
+                const isActive = inbox.id === activeInboxId;
+                container.innerHTML += `
+                    <div onclick="selectInbox('${inbox.id}')" class="group flex items-center justify-between p-3 rounded-xl cursor-pointer transition ${isActive ? 'bg-indigo-50 border border-indigo-100 text-indigo-900 font-medium' : 'hover:bg-slate-50 text-slate-600'}">
+                        <div class="flex items-center space-x-3 overflow-hidden">
+                            <i class="fa-solid fa-circle-nodes text-xs ${isActive ? 'text-indigo-600' : 'text-slate-300'}"></i>
+                            <span class="truncate text-sm">${inbox.address}</span>
+                        </div>
+                        <span class="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-full font-bold group-hover:bg-indigo-200 group-hover:text-indigo-800 transition">
+                            ${inbox.messages.length}
+                        </span>
+                    </div>
+                `;
+            });
+        }
+
+        async function selectInbox(id) {
+            activeInboxId = id;
+            activeMessageId = null;
+            renderInboxes();
+            const current = inboxes.find(i => i.id === id);
+            document.getElementById('current-inbox-title').innerText = current ? current.address : 'Select an Inbox';
+            renderMessages();
+            renderMessageViewer();
+            renderInboxMeta();
+            if (current) {
+                await loadInboxMessages(current.address);
+            }
+        }
+
+        function renderMessages() {
+            const container = document.getElementById('message-list');
+            const current = inboxes.find(i => i.id === activeInboxId);
+
+            if (!current || current.messages.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-slate-400">
+                        <i class="fa-solid fa-inbox text-2xl mb-2 block text-indigo-500"></i>
+                        <p class="text-xs">No messages yet for this inbox.</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            current.messages.forEach(msg => {
+                const isSelected = msg.id === activeMessageId;
+                container.innerHTML += `
+                    <div onclick="selectMessage('${msg.id}')" class="p-3.5 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-slate-200 hover:border-slate-300'}">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-xs font-bold text-slate-900 truncate max-w-[70%]">${msg.from}</span>
+                            <span class="text-[10px] text-slate-400 font-medium">${msg.time}</span>
+                        </div>
+                        <h4 class="text-xs font-semibold text-slate-800 truncate mb-1">${msg.subject}</h4>
+                        <p class="text-xs text-slate-400 line-clamp-2">${msg.body}</p>
+                    </div>`;
+            });
+        }
+
+        function selectMessage(msgId) {
+            activeMessageId = msgId;
+            renderMessages();
+            renderMessageViewer();
+        }
+
+        function renderMessageViewer() {
+            const container = document.getElementById('message-viewer');
+            if (!activeInboxId || !activeMessageId) {
+                container.className = 'flex-1 bg-white flex flex-col h-full items-center justify-center text-slate-400 p-8';
+                container.innerHTML = `
+                    <i class="fa-solid fa-paper-plane text-4xl mb-3"></i>
+                    <p class="text-sm font-medium">Select an email to read its contents</p>`;
+                return;
+            }
+
+            const inbox = inboxes.find(i => i.id === activeInboxId);
+            const msg = inbox.messages.find(m => m.id === activeMessageId);
+            container.className = 'flex-1 bg-white flex flex-col h-full overflow-hidden';
+            container.innerHTML = `
+                <div class="p-6 border-b border-slate-200 shrink-0">
+                    <h3 class="text-lg font-bold text-slate-900 mb-3">${msg.subject}</h3>
+                    <div class="flex items-center justify-between text-xs">
+                        <div>
+                            <span class="text-slate-400">From:</span> <strong class="text-slate-700">${msg.from}</strong>
+                        </div>
+                        <div class="text-slate-400 font-medium">Received at ${msg.time}</div>
+                    </div>
+                    <div class="mt-2 text-xs">
+                        <span class="text-slate-400">To:</span> <span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">${inbox.address}</span>
+                    </div>
+                </div>
+                <div class="flex-1 p-6 overflow-y-auto bg-slate-50/50 text-sm leading-relaxed text-slate-700 font-mono whitespace-pre-line">
+                    ${msg.body}
+                </div>`;
+        }
+
+        function renderInboxMeta() {
+            const meta = document.getElementById('current-inbox-meta');
+            const current = inboxes.find(i => i.id === activeInboxId);
+            if (!current) {
+                meta.innerText = 'Select or create an inbox to begin.';
+                return;
+            }
+            const refreshText = lastRefreshTime ? `Last refreshed ${lastRefreshTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not refreshed yet';
+            meta.innerText = `Messages: ${current.messages.length} • ${refreshText}`;
+        }
+
+        async function simulateInbound() {
+            const current = inboxes.find(i => i.id === activeInboxId);
+            if (!current) {
+                showToast('Select an inbox before simulating inbound email.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${WORKER_URL}/inbound`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        to: current.address,
+                        from: 'friend@example.com',
+                        subject: 'Welcome to WebShark Email',
+                        body: 'This is a simulated inbound message for your inbox.',
+                    }),
+                });
+
+                const text = await response.text();
+                let data = null;
+                try {
+                    data = text ? JSON.parse(text) : null;
+                } catch (parseError) {
+                    console.warn('Inbound endpoint returned invalid JSON:', text);
+                }
+
+                if (response.ok) {
+                    showToast('Simulated inbound message received.', 'success');
+                    await loadInboxMessages(current.address);
+                } else {
+                    const errMessage = data?.error || data?.message || text || response.statusText;
+                    showToast(`Inbound simulation failed: ${errMessage}`, 'error');
+                }
+            } catch (error) {
+                showToast(`Inbound simulation failed: ${error.message}`, 'error');
+            }
+        }
+
+        function refreshMessages() {
+            if (!activeInboxId) return;
+            const current = inboxes.find(i => i.id === activeInboxId);
+            if (!current) return;
+            loadInboxMessages(current.address);
+            showToast('Refreshing inbox…', 'info');
+        }
+
+        function openComposeModal() {
+            document.getElementById('compose-modal').classList.remove('hidden');
+            setComposeStatus('Enter recipient, subject, and message text.', 'info');
+        }
+
+        function closeComposeModal() {
+            document.getElementById('compose-modal').classList.add('hidden');
+            document.getElementById('compose-to').value = '';
+            document.getElementById('compose-subject').value = '';
+            document.getElementById('compose-body').value = '';
+            setComposeStatus('');
+            setComposeButtonState(false, 'Send');
+        }
+
+        async function sendEmail() {
+            const to = document.getElementById('compose-to').value.trim();
+            const subject = document.getElementById('compose-subject').value.trim();
+            const body = document.getElementById('compose-body').value.trim();
+
+            if (!to || !subject || !body) {
+                setComposeStatus('Please fill in all fields before sending.', 'error');
+                return;
+            }
+            if (!validateEmail(to)) {
+                setComposeStatus('Please enter a valid recipient email address.', 'error');
+                return;
+            }
+
+            try {
+                setComposeButtonState(true, 'Sending...');
+                setComposeStatus('Sending your email now…', 'info');
+                console.log('Sending email to worker', { to, subject, body });
+
+                const response = await fetch(`${WORKER_URL}/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ to, subject, body }),
+                });
+
+                const text = await response.text();
+                console.log('Worker response', response.status, response.statusText, text);
+
+                let data = null;
+                try {
+                    data = text ? JSON.parse(text) : null;
+                } catch (parseError) {
+                    console.warn('Worker returned non-JSON response:', text);
+                }
+
+                if (response.ok) {
+                    addSentHistoryEntry({
+                        to,
+                        subject,
+                        preview: body.length > 60 ? body.slice(0, 60) + '…' : body,
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    });
+                    setComposeStatus('Email sent successfully!', 'success');
+                    showToast('Email sent successfully!', 'success');
+                    if (to.toLowerCase().endsWith('@infin.io')) {
+                        await loadInboxMessages(to.toLowerCase());
+                    }
+                    setTimeout(closeComposeModal, 600);
+                } else {
+                    const errMessage = data?.error || data?.message || text || response.statusText;
+                    setComposeStatus(errMessage, 'error');
+                    showToast(`Send failed: ${errMessage}`, 'error');
+                }
+            } catch (error) {
+                setComposeStatus(error.message, 'error');
+                showToast(`Send failed: ${error.message}`, 'error');
+            } finally {
+                setComposeButtonState(false, 'Send');
+            }
+        }
+    </script>
+    <div id="toast" class="fixed bottom-5 right-5 z-50 max-w-xs rounded-2xl p-3 text-sm shadow-2xl transition-opacity duration-300 opacity-0"></div>
+</body>
+</html>

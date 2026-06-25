@@ -1,0 +1,12 @@
+{
+  "name": "webshark-email",
+  "version": "1.0.0",
+  "description": "Lightweight WebShark Email frontend with Cloudflare Worker backend",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
