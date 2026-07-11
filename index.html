@@ -496,7 +496,7 @@
                             ${inbox.messages.length}
                         </span>
                     </div>
-                `);
+                `;
             });
         }
 
@@ -523,7 +523,7 @@
                         <div class="flex justify-between items-start mb-2">
                             <div class="flex items-center space-x-2">
                                 <span class="text-xs font-bold text-slate-900 truncate max-w-[60%]">${msg.from}</span>
-                                {!isRead && `<span class="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>`}
+                                ${!isRead ? '<span class="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>' : ''}
                             </div>
                             <span class="text-[10px] text-slate-400 font-medium">${msg.time}</span>
                         </div>
