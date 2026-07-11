@@ -31,7 +31,7 @@
 
     <!-- Main Workspace -->
     <div class="flex flex-1 overflow-hidden">
-        
+
         <!-- Sidebar: Inbox Manager -->
         <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0">
             <!-- Generator Tool -->
@@ -49,6 +49,12 @@
                         <i class="fa-solid fa-shuffle"></i> Random
                     </button>
                 </div>
+            </div>
+
+            <!-- Inbox Search -->
+            <div class="p-4 border-b border-slate-100">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Search Inboxes</label>
+                <input type="text" id="inbox-search" placeholder="Search by address..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
             </div>
 
             <!-- Inboxes List -->
@@ -82,7 +88,8 @@
             <div class="p-4 border-b border-slate-200 bg-slate-50">
                 <h3 class="text-sm font-semibold text-slate-900 mb-3">Compose message</h3>
                 <div class="grid grid-cols-1 gap-3">
-                    <input id="compose-to" type="email" placeholder="To email address" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                    <input id="compose-to" type="email" placeholder="To email address" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" list="contacts-datalist">
+                    <datalist id="contacts-datalist"></datalist>
                     <input id="compose-subject" type="text" placeholder="Subject" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
                     <textarea id="compose-body" rows="5" placeholder="Message body" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
                     <div class="flex items-center justify-between gap-3">
@@ -102,6 +109,9 @@
         </main>
 
     </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col-reverse space-y-3 pointer-events-none"></div>
 
     <!-- JavaScript logic -->
     <script>
@@ -129,15 +139,104 @@
         let inboxes = [];
         let activeInboxId = null;
         let activeMessageId = null;
+        let searchTerm = ''; // For inbox search functionality
+        let contacts = []; // For contact management/frequent recipients
 
         // Initialize with one default random inbox
         window.onload = async () => {
             await createNewInbox(false);
+            loadContacts(); // Load contacts from localStorage
+            showToast('Welcome to WebShark Email!', 'success');
         };
 
+        function showToast(message, type = 'info') {
+            // Remove any existing toast containers
+            const existingContainer = document.getElementById('toast-container');
+            if (existingContainer) {
+                existingContainer.remove();
+            }
+
+            // Create toast container
+            const container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'fixed bottom-4 right-4 z-50 flex flex-col-reverse space-y-3 sm:flex-col sm:space-y-2';
+
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `flex w-full max-w-xs p-4 mb-4 rounded-lg shadow-lg ${getToastBackgroundColor(type)} ${getToastTextColor(type)} animate__animated animate__fadeInUp`;
+
+            // Set icon based on type
+            const iconMap = {
+                'success': 'fa-check-circle',
+                'error': 'fa-exclamation-triangle',
+                'warning': 'fa-exclamation-circle',
+                'info': 'fa-info-circle'
+            };
+            const icon = iconMap[type] || 'fa-info-circle';
+
+            toast.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas ${icon} text-xl mr-3"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium">${message}</p>
+                    </div>
+                </div>
+            `;
+
+            // Add close button
+            const closeButton = document.createElement('button');
+            closeButton.innerHTML = '<i class="fas fa-times text-opacity-50 hover:text-opacity-75"></i>';
+            closeButton.className = 'ml-4 flex-shrink-0 w-6 h-6 rounded-full hover:bg-gray-200 transition-colors';
+            closeButton.onclick = () => {
+                toast.remove();
+                if (container.children.length === 0) {
+                    container.remove();
+                }
+            };
+
+            // Insert close button at the top right
+            toast.querySelector('.flex-items-start').prepend(closeButton);
+
+            // Add toast to container
+            container.appendChild(toast);
+            document.body.appendChild(container);
+
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                    if (container.children.length === 0) {
+                        container.remove();
+                    }
+                }
+            }, 5000);
+        }
+
+        function getToastBackgroundColor(type) {
+            switch (type) {
+                case 'success': return 'bg-green-100';
+                case 'error': return 'bg-red-100';
+                case 'warning': return 'bg-yellow-100';
+                case 'info': return 'bg-blue-100';
+                default: return 'bg-blue-100';
+            }
+        }
+
+        function getToastTextColor(type) {
+            switch (type) {
+                case 'success': return 'text-green-800';
+                case 'error': return 'text-red-800';
+                case 'warning': return 'text-yellow-800';
+                case 'info': return 'text-blue-800';
+                default: return 'text-blue-800';
+            }
+        }
+
         function setStatus(message) {
-            const status = document.getElementById('send-status');
-            if (status) status.innerText = message;
+            // This function is kept for backward compatibility but now uses toast
+            showToast(message, 'info');
         }
 
         function setSendButton(enabled) {
@@ -147,12 +246,79 @@
             button.classList.toggle('opacity-50', !enabled);
         }
 
+        // Contact Management Functions
+        function loadContacts() {
+            const savedContacts = localStorage.getItem('webshark-contacts');
+            if (savedContacts) {
+                try {
+                    contacts = JSON.parse(savedContacts);
+                } catch (e) {
+                    console.warn('Failed to parse contacts from localStorage', e);
+                    contacts = [];
+                }
+            }
+            updateContactDatalist();
+        }
+
+        function saveContacts() {
+            try {
+                localStorage.setItem('webshark-contacts', JSON.stringify(contacts));
+                updateContactDatalist();
+            } catch (e) {
+                console.warn('Failed to save contacts to localStorage', e);
+            }
+        }
+
+        function addContact(email) {
+            if (!email) return;
+
+            // Normalize email for comparison
+            const normalizedEmail = email.trim().toLowerCase();
+
+            // Check if contact already exists
+            const exists = contacts.some(contact => contact.email.toLowerCase() === normalizedEmail);
+            if (!exists) {
+                contacts.push({
+                    email: email.trim(),
+                    added: Date.now()
+                });
+
+                // Keep only the 50 most recent contacts
+                if (contacts.length > 50) {
+                    contacts.sort((a, b) => b.added - a.added);
+                    contacts = contacts.slice(0, 50);
+                }
+
+                saveContacts();
+                return true;
+            }
+            return false;
+        }
+
+        function updateContactDatalist() {
+            const datalist = document.getElementById('contacts-datalist');
+            if (!datalist) return;
+
+            // Clear existing options
+            datalist.innerHTML = '';
+
+            // Add contact options
+            contacts
+                .sort((a, b) => b.added - a.added) // Sort by most recently added
+                .slice(0, 20) // Limit to top 20 for performance
+                .forEach(contact => {
+                    const option = document.createElement('option');
+                    option.value = contact.email;
+                    datalist.appendChild(option);
+                });
+        }
+
         async function createNewInbox(isCustom) {
             let prefix = "";
             if (isCustom) {
                 prefix = document.getElementById('custom-prefix').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
                 if (!prefix) {
-                    alert('Please enter a valid alphanumeric username prefix.');
+                    showToast('Please enter a valid alphanumeric username prefix.', 'error');
                     return;
                 }
                 document.getElementById('custom-prefix').value = "";
@@ -163,7 +329,7 @@
             const emailAddress = `${prefix}@infin.io`;
 
             if (inboxes.some(i => i.address === emailAddress)) {
-                alert('This address is already managed locally.');
+                showToast('This address is already managed locally.', 'error');
                 return;
             }
 
@@ -176,6 +342,7 @@
             inboxes.unshift(newInbox);
             renderInboxes();
             await selectInbox(newInbox.id);
+            showToast('New inbox created successfully!', 'success');
         }
 
         async function selectInbox(id) {
@@ -187,6 +354,7 @@
             if (!current) return;
 
             document.getElementById('current-inbox-title').innerText = current.address;
+            showToast(`Loading messages for ${current.address}...`, 'info');
             current.messages = await fetchMessages(current.address);
             renderMessages();
             renderMessageViewer();
@@ -197,12 +365,13 @@
                 const response = await fetch(`${WORKER_URL}/messages?address=${encodeURIComponent(address)}`);
                 const data = await response.json();
                 if (!response.ok) {
-                    throw new Error(data.error || 'Unable to fetch messages');
+                    showToast(data.error || 'Unable to fetch messages', 'error');
+                    return [];
                 }
-                setStatus('Loaded messages for ' + address);
+                showToast('Messages loaded successfully', 'success');
                 return Array.isArray(data.messages) ? data.messages : [];
             } catch (error) {
-                setStatus('Failed to load messages: ' + error.message);
+                showToast('Failed to load messages: ' + error.message, 'error');
                 return [];
             }
         }
@@ -213,16 +382,20 @@
             const body = document.getElementById('compose-body').value.trim();
 
             if (!to || !subject || !body) {
-                setStatus('Enter a destination address, subject, and body.');
+                showToast('Enter a destination address, subject, and body.', 'error');
                 return;
             }
 
             setSendButton(false);
-            setStatus('Sending...');
+            showToast('Sending message...', 'info');
 
             const result = await sendEmail(to, subject, body);
             if (result.success) {
-                setStatus('Message sent.');
+                showToast('Message sent successfully!', 'success');
+
+                // Add recipient to contacts if it's not already there
+                addContact(to);
+
                 if (to.toLowerCase().endsWith('@infin.io')) {
                     const inbox = inboxes.find(i => i.address.toLowerCase() === to.toLowerCase());
                     if (inbox && activeInboxId === inbox.id) {
@@ -232,7 +405,7 @@
                 document.getElementById('compose-subject').value = '';
                 document.getElementById('compose-body').value = '';
             } else {
-                setStatus('Send failed: ' + (result.error || 'Unknown error'));
+                showToast('Send failed: ' + (result.error || 'Unknown error'), 'error');
             }
 
             setSendButton(true);
@@ -258,19 +431,18 @@
 
         async function simulateInbound() {
             if (!activeInboxId) {
-                setStatus('Select an inbox before simulating inbound mail.');
+                showToast('Select an inbox before simulating inbound mail.', 'error');
                 return;
             }
 
             const current = inboxes.find(i => i.id === activeInboxId);
             if (!current) {
-                setStatus('No active inbox selected.');
+                showToast('No active inbox selected.', 'error');
                 return;
             }
 
             const template = inboundTemplates[Math.floor(Math.random() * inboundTemplates.length)];
-            setSendButton(false);
-            setStatus('Simulating inbound message...');
+            showToast('Simulating inbound message...', 'info');
 
             try {
                 const response = await fetch(`${WORKER_URL}/inbound`, {
@@ -289,12 +461,12 @@
                     throw new Error(data.error || data.message || 'Inbound request failed');
                 }
 
-                setStatus('Inbound message received.');
+                showToast('Inbound message received!', 'success');
                 current.messages = await fetchMessages(current.address);
                 renderMessages();
                 renderMessageViewer();
             } catch (error) {
-                setStatus('Inbound simulation failed: ' + error.message);
+                showToast('Inbound simulation failed: ' + error.message, 'error');
             } finally {
                 setSendButton(true);
             }
@@ -303,10 +475,16 @@
         // Render Sidebar Inboxes
         function renderInboxes() {
             const container = document.getElementById('inbox-list');
+            const searchInput = document.getElementById('inbox-search');
             document.getElementById('inbox-count').innerText = inboxes.length;
             container.innerHTML = '';
 
-            inboxes.forEach(inbox => {
+            // Filter inboxes based on search term
+            const filteredInboxes = inboxes.filter(inbox =>
+                inbox.address.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            filteredInboxes.forEach(inbox => {
                 const isActive = inbox.id === activeInboxId;
                 container.innerHTML += `
                     <div onclick="selectInbox('${inbox.id}')" class="group flex items-center justify-between p-3 rounded-xl cursor-pointer transition ${isActive ? 'bg-indigo-50 border border-indigo-100 text-indigo-900 font-medium' : 'hover:bg-slate-50 text-slate-600'}">
@@ -318,7 +496,7 @@
                             ${inbox.messages.length}
                         </span>
                     </div>
-                `;
+                `);
             });
         }
 
@@ -339,23 +517,122 @@
             container.innerHTML = '';
             current.messages.forEach(msg => {
                 const isSelected = msg.id === activeMessageId;
+                const isRead = msg.read === true;
                 container.innerHTML += `
-                    <div onclick="selectMessage('${msg.id}')" class="p-3.5 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-slate-200 hover:border-slate-300'}">
-                        <div class="flex justify-between items-start mb-1">
-                            <span class="text-xs font-bold text-slate-900 truncate max-w-[70%]">${msg.from}</span>
+                    <div class="p-3.5 bg-white border rounded-xl shadow-xs cursor-pointer transition-all ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-50' : 'border-slate-200 hover:border-slate-300'} flex flex-col">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-slate-900 truncate max-w-[60%]">${msg.from}</span>
+                                {!isRead && `<span class="inline-block w-2 h-2 bg-blue-500 rounded-full"></span>`}
+                            </div>
                             <span class="text-[10px] text-slate-400 font-medium">${msg.time}</span>
                         </div>
-                        <h4 class="text-xs font-semibold text-slate-800 truncate mb-1">${msg.subject}</h4>
+                        <h4 class="text-xs font-semibold text-slate-800 truncate mb-1 line-clamp-1 ${isRead ? 'text-slate-500' : 'text-slate-900'}">${msg.subject}</h4>
                         <p class="text-xs text-slate-400 line-clamp-2">${msg.body}</p>
+                        <div class="mt-2 flex items-center space-x-2">
+                            <button onclick="deleteMessage(event, '${msg.id}')" class="text-xs text-red-500 hover:text-red-700 hover:underline">
+                                <i class="fa-solid fa-trash"></i> Delete
+                            </button>
+                            <button onclick="toggleReadStatus(event, '${msg.id}', ${isRead})" class="text-xs text-blue-500 hover:text-blue-700 hover:underline">
+                                <i class="fa-solid fa-${isRead ? 'circle' : 'circle-check'}"></i> ${isRead ? 'Mark Unread' : 'Mark Read'}
+                            </button>
+                        </div>
                     </div>
                 `;
             });
         }
 
         function selectMessage(msgId) {
+            // Mark message as read when selected
+            if (activeInboxId) {
+                const current = inboxes.find(i => i.id === activeInboxId);
+                if (current) {
+                    const message = current.messages.find(m => m.id === msgId);
+                    if (message && !message.read) {
+                        message.read = true;
+                        // Update the backend
+                        fetch(`${WORKER_URL}/messages/${msgId}?address=${encodeURIComponent(current.address)}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ read: true })
+                        }).catch(err => console.warn('Failed to update read status:', err));
+                    }
+                }
+            }
+
             activeMessageId = msgId;
             renderMessages();
             renderMessageViewer();
+        }
+
+        async function deleteMessage(event, messageId) {
+            event.stopPropagation(); // Prevent triggering selectMessage
+            if (!activeInboxId) return;
+
+            if (!confirm('Are you sure you want to delete this message?')) {
+                return;
+            }
+
+            const current = inboxes.find(i => i.id === activeInboxId);
+            if (!current) return;
+
+            try {
+                const response = await fetch(`${WORKER_URL}/messages/${messageId}?address=${encodeURIComponent(current.address)}`, {
+                    method: 'DELETE',
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to delete message');
+                }
+
+                // Remove from local state
+                current.messages = current.messages.filter(msg => msg.id !== messageId);
+
+                // If we deleted the currently selected message, clear selection
+                if (activeMessageId === messageId) {
+                    activeMessageId = null;
+                }
+
+                renderMessages();
+                renderMessageViewer();
+                showToast('Message deleted successfully', 'success');
+            } catch (error) {
+                showToast('Failed to delete message: ' + error.message, 'error');
+            }
+        }
+
+        async function toggleReadStatus(event, messageId, currentReadStatus) {
+            event.stopPropagation(); // Prevent triggering selectMessage
+            if (!activeInboxId) return;
+
+            const current = inboxes.find(i => i.id === activeInboxId);
+            if (!current) return;
+
+            const newReadStatus = !currentReadStatus;
+
+            try {
+                const response = await fetch(`${WORKER_URL}/messages/${messageId}?address=${encodeURIComponent(current.address)}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ read: newReadStatus }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to update message status');
+                }
+
+                // Update local state
+                const message = current.messages.find(msg => msg.id === messageId);
+                if (message) {
+                    message.read = newReadStatus;
+                }
+
+                renderMessages();
+                renderMessageViewer();
+                showToast(`Message marked as ${newReadStatus ? 'read' : 'unread'}`, 'success');
+            } catch (error) {
+                showToast('Failed to update message status: ' + error.message, 'error');
+            }
         }
 
         function renderMessageViewer() {
@@ -400,10 +677,42 @@
             if (!activeInboxId) return;
             const current = inboxes.find(i => i.id === activeInboxId);
             if (!current) return;
+
+            showToast('Refreshing messages...', 'info');
             current.messages = await fetchMessages(current.address);
             renderMessages();
             renderMessageViewer();
         }
+
+        // Search functionality
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('inbox-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    searchTerm = e.target.value;
+                    renderInboxes();
+                });
+
+                // Add clear button functionality
+                searchInput.addEventListener('search', () => {
+                    searchTerm = '';
+                    renderInboxes();
+                });
+            }
+
+            // Add autocomplete functionality to the "To" field
+            const toInput = document.getElementById('compose-to');
+            if (toInput) {
+                // Update datalist when contacts change
+                const updateContactListener = () => {
+                    updateContactDatalist();
+                };
+
+                // Listen for changes to contacts array (we'll call this when we add contacts)
+                // For now, we'll just update the datalist periodically or when needed
+                // The updateContactDatalist function is already called in addContact and loadContacts
+            }
+        });
     </script>
 </body>
 </html>
