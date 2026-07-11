@@ -6,3 +6,6 @@ compatibility_flags = ["nodejs_compat"]
 kv_namespaces = [
   { binding = "INBOXES", id = "f7def1f429c94169b340ed9278b358de" }
 ]
+
+[[triggers]]
+crons = ["0 * * * *"]  # Run at the top of every hour

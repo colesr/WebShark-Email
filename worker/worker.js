@@ -3,7 +3,7 @@ const inboxStore = new Map();
 const CORS_HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
@@ -46,12 +46,54 @@ async function receiveInbound(address, from, subject, body, env) {
     subject: subject || 'No subject',
     body: body || '',
     time: new Date().toLocaleString(),
+    timestamp: Date.now(),
+    read: false, // New: track if message has been read
   };
 
   const inboxMessages = await loadInbox(normalized, env);
   inboxMessages.unshift(storedMessage);
   await saveInbox(normalized, inboxMessages.slice(0, 50), env);
   return storedMessage;
+}
+
+// Clean up old messages (older than 24 hours)
+async function cleanupOldMessages(env) {
+  if (!env?.INBOXES || typeof env.INBOXES.list !== 'function') {
+    // If we don't have access to list keys, we can't do bulk cleanup
+    return;
+  }
+
+  try {
+    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000); // 24 hours in milliseconds
+    let cleanedCount = 0;
+
+    // List all keys in the KV namespace
+    const { keys } = await env.INBOXES.list();
+
+    for (const key of keys) {
+      try {
+        const messages = await loadInbox(key.name, env);
+        const originalLength = messages.length;
+        const filteredMessages = messages.filter(msg =>
+          msg.timestamp && msg.timestamp > oneDayAgo
+        );
+
+        if (filteredMessages.length < originalLength) {
+          await saveInbox(key.name, filteredMessages, env);
+          cleanedCount += (originalLength - filteredMessages.length);
+        }
+      } catch (error) {
+        console.warn(`Error processing key ${key.name}:`, error);
+        // Continue with other keys
+      }
+    }
+
+    if (cleanedCount > 0) {
+      console.log(`Cleaned up ${cleanedCount} old messages`);
+    }
+  } catch (error) {
+    console.error('Error during message cleanup:', error);
+  }
 }
 
 export default {
@@ -107,6 +149,53 @@ export default {
       });
     }
 
+    if (request.method === 'DELETE' && pathname.startsWith('/messages/')) {
+      const messageId = pathname.split('/')[2]; // Get ID from /messages/:id
+      const address = url.searchParams.get('address');
+      if (!address || !messageId) {
+        return jsonResponse({ error: 'Missing address or message ID' }, 400);
+      }
+
+      const normalizedAddress = address.trim().toLowerCase();
+      const messages = await loadInbox(normalizedAddress, env);
+      const updatedMessages = messages.filter(msg => msg.id !== messageId);
+      await saveInbox(normalizedAddress, updatedMessages, env);
+
+      return jsonResponse({
+        success: true,
+        message: 'Message deleted successfully',
+      });
+    }
+
+    if (request.method === 'PATCH' && pathname.startsWith('/messages/')) {
+      const messageId = pathname.split('/')[2]; // Get ID from /messages/:id
+      const address = url.searchParams.get('address');
+      if (!address || !messageId) {
+        return jsonResponse({ error: 'Missing address or message ID' }, 400);
+      }
+
+      const { read } = await request.json();
+      if (typeof read !== 'boolean') {
+        return jsonResponse({ error: 'Invalid read status' }, 400);
+      }
+
+      const normalizedAddress = address.trim().toLowerCase();
+      const messages = await loadInbox(normalizedAddress, env);
+      const messageIndex = messages.findIndex(msg => msg.id === messageId);
+
+      if (messageIndex === -1) {
+        return jsonResponse({ error: 'Message not found' }, 404);
+      }
+
+      messages[messageIndex].read = read;
+      await saveInbox(normalizedAddress, messages, env);
+
+      return jsonResponse({
+        success: true,
+        message: 'Message status updated successfully',
+      });
+    }
+
     if (request.method !== 'POST' || pathname !== '/send') {
       return jsonResponse({ error: 'Not Found' }, 404);
     }
@@ -141,6 +230,8 @@ export default {
         subject,
         body,
         time: new Date().toLocaleString(),
+        timestamp: Date.now(),
+        read: false, // New: track if message has been read
       };
 
       if (isLocalInbox) {
@@ -203,4 +294,10 @@ export default {
       return jsonResponse({ error: error.message }, 500);
     }
   },
+
+  // Scheduled function for cleaning up old messages
+  async scheduled(event, env, ctx) {
+    // Wait until the cleanup is complete before allowing the worker to exit
+    ctx.waitUntil(cleanupOldMessages(env));
+  }
 };
